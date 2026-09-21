@@ -10,3 +10,8 @@
 # React Router
 /.react-router/
 /build/
+
+# lockfile: this set of templates ships without one (INSTALL_CMD is `npm install`).
+# One was committed here by accident from a test clone; ignore it so it does not
+# come back the same way.
+package-lock.json
