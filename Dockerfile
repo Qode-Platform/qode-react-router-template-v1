@@ -1,22 +1,28 @@
-FROM node:24-alpine AS development-dependencies-env
-COPY . /app
-WORKDIR /app
-RUN npm ci
+# Built by .github/workflows/deploy.yml (context ., file Dockerfile) and pushed
+# to Artifact Registry. Adapted from the fleet's node stack pack.
+#
+# Deviations from the pack, and why:
+#   - `npm install` when no lockfile is committed; the pack assumes `npm ci`.
+#   - replaces the generator's Dockerfile, which COPYs package-lock.json and runs
+#     `npm ci` - this template ships no lockfile, so that build fails outright.
+#
+# BASE_PATH is NOT baked in: it is per-agent and only known at run time, so the
+# image serves at the host root under k8s and the agent's /direct/<id>:<port>
+# run supplies its own prefix.
 
-FROM node:24-alpine AS production-dependencies-env
-COPY ./package.json package-lock.json /app/
+FROM node:20-alpine AS build
 WORKDIR /app
-RUN npm ci --omit=dev
-
-FROM node:24-alpine AS build-env
-COPY . /app/
-COPY --from=development-dependencies-env /app/node_modules /app/node_modules
-WORKDIR /app
+COPY package.json package-lock.json* ./
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+COPY . .
 RUN npm run build
 
-FROM node:24-alpine
-COPY ./package.json package-lock.json /app/
-COPY --from=production-dependencies-env /app/node_modules /app/node_modules
-COPY --from=build-env /app/build /app/build
+FROM node:20-alpine AS runtime
+ARG BUILD_ID=""
 WORKDIR /app
+ENV NODE_ENV=production PORT=3000 HOST=0.0.0.0 BUILD_ID=$BUILD_ID
+RUN addgroup -S app && adduser -S app -G app
+COPY --from=build --chown=app:app /app ./
+USER app
+EXPOSE 3000
 CMD ["npm", "run", "start"]
