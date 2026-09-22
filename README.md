@@ -132,3 +132,48 @@ This template comes with [Tailwind CSS](https://tailwindcss.com/) already config
 ---
 
 Built with ❤️ using React Router.
+
+## Rule: everything under BASE_PATH
+
+This app is not served at the host root. The fleet ingress serves it under a
+proxy prefix and forwards that prefix **unchanged**:
+
+```
+BASE_PATH=/direct/<agent>:<port>
+```
+
+**Every API call and every asset reference must carry that base path.** A bare
+`"/..."` literal resolves against the host root, so it works on localhost and
+404s in the fleet.
+
+**What React Router / Vite rewrites for you:** route resolution - `<Link>`,
+`<NavLink>`, `navigate()` and loader/action paths all go through the `basename`
+set in `react-router.config.ts` from `BASE_PATH` - plus Vite's handling of
+imported assets (`import logo from "./logo.svg"`).
+
+**What is NOT rewritten:** `fetch`/XHR/axios URLs, plain `<a href>` and
+`<img src>` string literals, CSS `url(...)`, and any URL built from a string in
+code.
+
+**Use this framework's mechanism:** the Vite mechanism is normally
+`import.meta.env.BASE_URL` - but in **this** template Vite's `base` is
+deliberately left unset (`BASE_PATH` contains a colon, which crashes
+`path-to-regexp` inside `react-router-serve`; see the comment in
+`vite.config.ts`), so `import.meta.env.BASE_URL` is `"/"` here and must not be
+relied on. Use the router's `basename` instead, most simply via `useHref`:
+
+```tsx
+import { useHref } from "react-router";
+
+const itemsUrl = useHref("/api/items"); // basename applied
+const res = await fetch(itemsUrl);
+```
+
+**Verify with:**
+
+```bash
+npm run check:base-path
+```
+
+A line that is genuinely framework-handled can be exempted with a trailing
+`// base-path-ok` comment (say why).
