@@ -5,10 +5,6 @@
 #   - `npm install` when no lockfile is committed; the pack assumes `npm ci`.
 #   - replaces the generator's Dockerfile, which COPYs package-lock.json and runs
 #     `npm ci` - this template ships no lockfile, so that build fails outright.
-#
-# BASE_PATH is NOT baked in: it is per-agent and only known at run time, so the
-# image serves at the host root under k8s and the agent's /direct/<id>:<port>
-# run supplies its own prefix.
 
 FROM node:22-alpine AS build
 WORKDIR /app
